@@ -1,7 +1,7 @@
 // Scrollable message history component
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, useInput, useStdout } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import { Message } from './Message.tsx';
 import type { Message as MessageType } from '../types.ts';
 
@@ -105,7 +105,7 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isInputFocus
       {showScrollIndicator && (
         <Box justifyContent="center">
           <Box borderStyle="round" borderColor="gray" paddingX={1}>
-            <Box>↑↓ Shift+Arrows to scroll • Page Up/Down</Box>
+            <Text>↑↓ Shift+Arrows to scroll • Page Up/Down</Text>
           </Box>
         </Box>
       )}
