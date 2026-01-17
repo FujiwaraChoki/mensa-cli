@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Box } from 'ink';
+import { TerminalInfoProvider } from 'ink-picture';
 import { Onboarding } from './screens/Onboarding.tsx';
 import { Chat } from './screens/Chat.tsx';
 import { Config } from './screens/Config.tsx';
@@ -22,57 +23,67 @@ export const App: React.FC<AppProps> = ({ continueSession, resumeSessionId }) =>
 
   if (isLoading) {
     return (
-      <Box>
-        <Spinner />
-      </Box>
+      <TerminalInfoProvider>
+        <Box>
+          <Spinner />
+        </Box>
+      </TerminalInfoProvider>
     );
   }
 
   if (isFirstRun || !config) {
     return (
-      <Onboarding
-        onComplete={async (newConfig: ConfigType) => {
-          await updateConfig(newConfig);
-        }}
-      />
+      <TerminalInfoProvider>
+        <Onboarding
+          onComplete={async (newConfig: ConfigType) => {
+            await updateConfig(newConfig);
+          }}
+        />
+      </TerminalInfoProvider>
     );
   }
 
   if (screen === 'config') {
     return (
-      <Config
-        config={config}
-        onSave={async (newConfig) => {
-          await updateConfig(newConfig);
-          setScreen('chat');
-        }}
-        onCancel={() => setScreen('chat')}
-      />
+      <TerminalInfoProvider>
+        <Config
+          config={config}
+          onSave={async (newConfig) => {
+            await updateConfig(newConfig);
+            setScreen('chat');
+          }}
+          onCancel={() => setScreen('chat')}
+        />
+      </TerminalInfoProvider>
     );
   }
 
   if (screen === 'mcp') {
     return (
-      <Mcp
-        config={config}
-        mcpStatus={mcpStatus}
-        onSave={async (newConfig) => {
-          await updateConfig(newConfig);
-          setScreen('chat');
-        }}
-        onCancel={() => setScreen('chat')}
-      />
+      <TerminalInfoProvider>
+        <Mcp
+          config={config}
+          mcpStatus={mcpStatus}
+          onSave={async (newConfig) => {
+            await updateConfig(newConfig);
+            setScreen('chat');
+          }}
+          onCancel={() => setScreen('chat')}
+        />
+      </TerminalInfoProvider>
     );
   }
 
   return (
-    <Chat
-      config={config}
-      continueSession={continueSession}
-      resumeSessionId={resumeSessionId}
-      onOpenConfig={() => setScreen('config')}
-      onOpenMcp={() => setScreen('mcp')}
-      onMcpStatusChange={setMcpStatus}
-    />
+    <TerminalInfoProvider>
+      <Chat
+        config={config}
+        continueSession={continueSession}
+        resumeSessionId={resumeSessionId}
+        onOpenConfig={() => setScreen('config')}
+        onOpenMcp={() => setScreen('mcp')}
+        onMcpStatusChange={setMcpStatus}
+      />
+    </TerminalInfoProvider>
   );
 };

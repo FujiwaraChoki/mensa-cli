@@ -3,7 +3,18 @@
 import { useState, useCallback, useRef } from 'react';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { saveLastSessionId } from '../utils/config.ts';
-import type { Config, Message, Tool, UsageStats, SessionInfo, McpServerStatus } from '../types.ts';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import type { Config, Message, Tool, UsageStats, SessionInfo, McpServerStatus, PendingImage, ContentBlock } from '../types.ts';
+
+// Save image to temp file and return path
+const saveImageToTemp = async (image: PendingImage): Promise<string> => {
+  const ext = image.mediaType.split('/')[1] || 'png';
+  const tempPath = join(tmpdir(), `mensa-send-${image.id}.${ext}`);
+  const buffer = Buffer.from(image.data, 'base64');
+  await Bun.write(tempPath, buffer);
+  return tempPath;
+};
 
 interface UseChatOptions {
   continueSession?: boolean;
@@ -18,7 +29,7 @@ interface UseChatReturn {
   usage: UsageStats;
   session: SessionInfo;
   mcpStatus: McpServerStatus[];
-  sendMessage: (prompt: string) => Promise<void>;
+  sendMessage: (prompt: string, images?: PendingImage[]) => Promise<void>;
   undo: () => Promise<boolean>;
   interrupt: () => Promise<void>;
 }
@@ -50,12 +61,47 @@ export const useChat = (config: Config, options: UseChatOptions = {}): UseChatRe
   const queryRef = useRef<Query | null>(null);
   const userMessageIds = useRef<string[]>([]);
 
-  const sendMessage = useCallback(async (prompt: string) => {
+  const sendMessage = useCallback(async (prompt: string, images?: PendingImage[]) => {
     setIsLoading(true);
     setError(null);
 
+    // Build message content for display (with images)
+    let messageContent: string | ContentBlock[];
+    let actualPrompt = prompt;
+
+    if (images && images.length > 0) {
+      // Save images to temp files for Claude to read
+      const imagePaths: string[] = [];
+      for (const img of images) {
+        const path = await saveImageToTemp(img);
+        imagePaths.push(path);
+      }
+
+      // Build prompt with image references
+      const imageRefs = imagePaths.map((p, i) => `[Image ${i + 1}: ${p}]`).join('\n');
+      actualPrompt = `${imageRefs}\n\n${prompt || 'Please analyze these images.'}`;
+
+      // For display, store the multimodal content
+      const contentBlocks: ContentBlock[] = [
+        ...images.map(img => ({
+          type: 'image' as const,
+          source: {
+            type: 'base64' as const,
+            media_type: img.mediaType,
+            data: img.data,
+          },
+        })),
+      ];
+      if (prompt) {
+        contentBlocks.push({ type: 'text' as const, text: prompt });
+      }
+      messageContent = contentBlocks;
+    } else {
+      messageContent = prompt;
+    }
+
     // Add user message
-    const userMessage: Message = { role: 'user', content: prompt };
+    const userMessage: Message = { role: 'user', content: messageContent };
     setMessages(prev => [...prev, userMessage]);
 
     let assistantContent = '';
@@ -97,7 +143,8 @@ export const useChat = (config: Config, options: UseChatOptions = {}): UseChatRe
         queryOptions.resume = options.resumeSessionId;
       }
 
-      const q = query({ prompt, options: queryOptions });
+      // Use actualPrompt which includes image file paths for Claude to read
+      const q = query({ prompt: actualPrompt, options: queryOptions });
       queryRef.current = q;
 
       for await (const message of q) {

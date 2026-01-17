@@ -53,9 +53,33 @@ export interface Config {
   lastSessionId?: string;
 }
 
+// Image content types for multimodal messages
+export interface ImageContent {
+  type: 'image';
+  source: {
+    type: 'base64';
+    media_type: string;
+    data: string;
+  };
+}
+
+export interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+export type ContentBlock = TextContent | ImageContent;
+
+// Pending image waiting to be sent
+export interface PendingImage {
+  id: string;
+  data: string;
+  mediaType: string;
+}
+
 export interface Message {
   role: 'user' | 'assistant' | 'system';
-  content: string;
+  content: string | ContentBlock[];
   uuid?: string; // For tracking user messages for undo
 }
 

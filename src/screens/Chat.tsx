@@ -9,7 +9,7 @@ import { Spinner } from '../components/Spinner.tsx';
 import { ToolIndicator } from '../components/ToolIndicator.tsx';
 import { StatusBar } from '../components/StatusBar.tsx';
 import { useChat } from '../hooks/useChat.ts';
-import type { Config, McpServerStatus } from '../types.ts';
+import type { Config, McpServerStatus, PendingImage } from '../types.ts';
 
 interface ChatProps {
   config: Config;
@@ -75,7 +75,7 @@ export const Chat: React.FC<ChatProps> = ({
     }
   });
 
-  const handleSubmit = async (value: string) => {
+  const handleSubmit = async (value: string, images?: PendingImage[]) => {
     const cmd = value.toLowerCase().trim();
 
     // Exit commands
@@ -112,14 +112,15 @@ export const Chat: React.FC<ChatProps> = ({
 exit, quit - Exit mensa
 
 Shortcuts:
-Ctrl+C - Interrupt current operation`;
+Ctrl+C - Interrupt current operation
+Cmd+V - Paste image from clipboard`;
 
       // Add help as a system message (we'll need to handle this specially)
       sendMessage('/help');
       return;
     }
 
-    sendMessage(value);
+    sendMessage(value, images);
   };
 
   const mcpCount = config.mcpServers ? Object.keys(config.mcpServers).length : 0;
