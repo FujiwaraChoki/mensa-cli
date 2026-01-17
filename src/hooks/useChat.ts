@@ -5,7 +5,14 @@ import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { saveLastSessionId } from '../utils/config.ts';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { spawn } from 'child_process';
 import type { Config, Message, Tool, UsageStats, SessionInfo, McpServerStatus, PendingImage, ContentBlock } from '../types.ts';
+
+// Send macOS notification
+const sendNotification = (title: string, message: string) => {
+  const script = `display notification "${message.replace(/"/g, '\\"')}" with title "${title.replace(/"/g, '\\"')}"`;
+  spawn('osascript', ['-e', script], { stdio: 'ignore', detached: true }).unref();
+};
 
 // Save image to temp file and return path
 const saveImageToTemp = async (image: PendingImage): Promise<string> => {
@@ -213,12 +220,14 @@ export const useChat = (config: Config, options: UseChatOptions = {}): UseChatRe
           }
         }
       }
+    sendNotification('Mensa', 'Response complete');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setMessages(prev => [
         ...prev,
         { role: 'system', content: `Error: ${err instanceof Error ? err.message : 'An error occurred'}` },
       ]);
+      sendNotification('Mensa', 'Error occurred');
     } finally {
       setIsLoading(false);
       setCurrentTool(null);

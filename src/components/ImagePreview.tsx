@@ -1,10 +1,7 @@
 // Image preview component for pending images above the input
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
-import Image from 'ink-picture';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import type { PendingImage } from '../types.ts';
 
 interface ImagePreviewProps {
@@ -12,34 +9,14 @@ interface ImagePreviewProps {
   onRemove?: (index: number) => void;
 }
 
-// Save base64 image to temp file and return path
-const saveToTempFile = async (image: PendingImage): Promise<string> => {
-  const ext = image.mediaType.split('/')[1] || 'png';
-  const tempPath = join(tmpdir(), `mensa-${image.id}.${ext}`);
-  const buffer = Buffer.from(image.data, 'base64');
-  await Bun.write(tempPath, buffer);
-  return tempPath;
+// Format file size for display
+const formatSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 };
 
 export const ImagePreview: React.FC<ImagePreviewProps> = ({ images }) => {
-  const [tempPaths, setTempPaths] = useState<Record<string, string>>({});
-
-  // Save images to temp files when they change
-  useEffect(() => {
-    const saveTempFiles = async () => {
-      const newPaths: Record<string, string> = {};
-      for (const image of images) {
-        if (!tempPaths[image.id]) {
-          newPaths[image.id] = await saveToTempFile(image);
-        } else {
-          newPaths[image.id] = tempPaths[image.id];
-        }
-      }
-      setTempPaths(newPaths);
-    };
-    saveTempFiles();
-  }, [images]);
-
   if (images.length === 0) {
     return null;
   }
@@ -47,20 +24,16 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ images }) => {
   return (
     <Box flexDirection="column" marginTop={1}>
       <Box flexDirection="row" gap={2}>
-        {images.map((image, index) => (
-          <Box key={image.id} flexDirection="column" alignItems="center">
-            {tempPaths[image.id] ? (
-              <Image
-                src={tempPaths[image.id]}
-                alt=""
-                width={20}
-                height={10}
-              />
-            ) : (
-              <Text dimColor>Loading...</Text>
-            )}
-          </Box>
-        ))}
+        {images.map((image, index) => {
+          const ext = image.mediaType.split('/')[1] || 'image';
+          const size = formatSize(Math.ceil(image.data.length * 0.75)); // base64 to bytes
+          return (
+            <Box key={image.id} borderStyle="round" paddingX={1}>
+              <Text color="cyan">[{ext.toUpperCase()}]</Text>
+              <Text dimColor> {size}</Text>
+            </Box>
+          );
+        })}
       </Box>
       <Box marginTop={1}>
         <Text dimColor italic>
