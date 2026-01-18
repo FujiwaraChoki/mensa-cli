@@ -6,7 +6,7 @@ import { saveLastSessionId } from '../utils/config.ts';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawn } from 'child_process';
-import type { Config, Message, Tool, UsageStats, SessionInfo, McpServerStatus, PendingImage, ContentBlock } from '../types.ts';
+import type { Config, Message, Tool, UsageStats, SessionInfo, McpServerStatus, PendingImage, ContentBlock, ToolExecution, ToolContent } from '../types.ts';
 
 // Send macOS notification
 const sendNotification = (title: string, message: string) => {
@@ -111,8 +111,6 @@ export const useChat = (config: Config, options: UseChatOptions = {}): UseChatRe
     const userMessage: Message = { role: 'user', content: messageContent };
     setMessages(prev => [...prev, userMessage]);
 
-    let assistantContent = '';
-
     try {
       // Build MCP server config if configured
       const mcpServers = config.mcpServers ? { ...config.mcpServers } : undefined;
@@ -188,19 +186,64 @@ export const useChat = (config: Config, options: UseChatOptions = {}): UseChatRe
         if (message.type === 'assistant') {
           for (const block of message.message.content) {
             if ('text' in block) {
-              assistantContent += block.text;
-              // Update UI with streaming text
+              // Update message content preserving block order
               setMessages(prev => {
                 const newMessages = [...prev];
                 const lastMsg = newMessages[newMessages.length - 1];
+
                 if (lastMsg?.role === 'assistant') {
-                  lastMsg.content = assistantContent;
+                  // Get current content as array
+                  const content: ContentBlock[] = Array.isArray(lastMsg.content)
+                    ? [...lastMsg.content]
+                    : lastMsg.content
+                      ? [{ type: 'text', text: lastMsg.content }]
+                      : [];
+
+                  // Check if last block is text - if so, append to it (streaming continuation)
+                  const lastBlock = content[content.length - 1];
+                  if (lastBlock && lastBlock.type === 'text') {
+                    content[content.length - 1] = { type: 'text', text: lastBlock.text + block.text };
+                  } else {
+                    // Add new text block (text after a tool)
+                    content.push({ type: 'text', text: block.text });
+                  }
+
+                  lastMsg.content = content;
                 } else {
-                  newMessages.push({ role: 'assistant', content: assistantContent });
+                  // Create new assistant message with array content
+                  newMessages.push({
+                    role: 'assistant',
+                    content: [{ type: 'text', text: block.text }]
+                  });
                 }
                 return newMessages;
               });
             } else if ('name' in block) {
+              // Create tool execution entry
+              const toolExecution: ToolExecution = {
+                name: block.name,
+                input: block.input,
+                status: 'running',
+              };
+
+              // Add tool block at current position
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMsg = newMessages[newMessages.length - 1];
+                if (lastMsg?.role === 'assistant') {
+                  // Convert content to array if needed
+                  const content: ContentBlock[] = Array.isArray(lastMsg.content)
+                    ? [...lastMsg.content]
+                    : lastMsg.content
+                      ? [{ type: 'text', text: lastMsg.content }]
+                      : [];
+                  content.push({ type: 'tool', tool: toolExecution } as ToolContent);
+                  lastMsg.content = content;
+                }
+                return newMessages;
+              });
+
+              // Also set currentTool for active indicator
               setCurrentTool({ name: block.name, input: block.input });
             }
           }

@@ -3,13 +3,14 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { Markdown } from './Markdown.tsx';
-import type { Message as MessageType, ContentBlock } from '../types.ts';
+import { ToolBlock } from './ToolBlock.tsx';
+import type { Message as MessageType, ContentBlock, ToolContent } from '../types.ts';
 
 interface MessageProps {
   message: MessageType;
 }
 
-const CURSOR = '|';
+const CURSOR = '▍';
 
 // Helper to extract text from content (string or ContentBlock[])
 const getTextContent = (content: string | ContentBlock[]): string => {
@@ -105,16 +106,32 @@ export const Message: React.FC<MessageProps> = ({ message }) => {
     );
   }
 
-  // Assistant messages get markdown rendering
-  const textContent = getTextContent(content);
+  // Assistant messages - handle mixed content (text + tools)
+  if (Array.isArray(content)) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        {content.map((block, i) => {
+          if (block.type === 'text') {
+            return (
+              <Box key={i} flexDirection="column">
+                <Markdown>{block.text}</Markdown>
+              </Box>
+            );
+          }
+          if (block.type === 'tool') {
+            return <ToolBlock key={i} tool={(block as ToolContent).tool} />;
+          }
+          // Image blocks in assistant messages (rare)
+          return null;
+        })}
+      </Box>
+    );
+  }
+
+  // String content fallback
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Box>
-        <Text dimColor>{CURSOR} </Text>
-        <Box flexDirection="column">
-          <Markdown>{textContent}</Markdown>
-        </Box>
-      </Box>
+      <Markdown>{content}</Markdown>
     </Box>
   );
 };

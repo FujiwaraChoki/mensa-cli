@@ -68,7 +68,33 @@ export interface TextContent {
   text: string;
 }
 
-export type ContentBlock = TextContent | ImageContent;
+// Tool execution tracking
+export interface ToolExecution {
+  name: string;
+  input: unknown;
+  status: 'running' | 'completed' | 'error';
+}
+
+export interface ToolContent {
+  type: 'tool';
+  tool: ToolExecution;
+}
+
+// Edit tool input structure
+export interface EditToolInput {
+  file_path: string;
+  old_string: string;
+  new_string: string;
+}
+
+// Task tool input structure
+export interface TaskToolInput {
+  description: string;
+  prompt: string;
+  subagent_type: string;
+}
+
+export type ContentBlock = TextContent | ImageContent | ToolContent;
 
 // Pending image waiting to be sent
 export interface PendingImage {
@@ -99,4 +125,12 @@ export const MODELS = [
 export type ModelValue = typeof MODELS[number]['value'];
 
 // Screen types
-export type Screen = 'chat' | 'config' | 'mcp';
+export type Screen = 'chat' | 'config' | 'mcp' | 'session-picker';
+
+// Session summary for session picker
+export interface SessionSummary {
+  id: string;
+  timestamp: Date;
+  preview: string;
+  cwd: string;
+}

@@ -8,13 +8,13 @@ interface SpinnerProps {
   description?: string;
 }
 
-const CURSOR = '|';
+const CURSOR = '▍';
 
 export const Spinner: React.FC<SpinnerProps> = ({ description }) => (
   <Box marginTop={1}>
     <Text>{CURSOR} </Text>
     <Text dimColor>
-      <InkSpinner type="line" />
+      <InkSpinner type="dots" />
       {description ? ` ${description}` : ''}
     </Text>
   </Box>

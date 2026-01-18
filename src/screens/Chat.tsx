@@ -18,6 +18,7 @@ interface ChatProps {
   onOpenConfig: () => void;
   onOpenMcp: () => void;
   onMcpStatusChange?: (status: McpServerStatus[]) => void;
+  onResumeSession?: (sessionId?: string) => void;
 }
 
 const formatModelName = (model: string): string => {
@@ -47,6 +48,7 @@ export const Chat: React.FC<ChatProps> = ({
   onOpenConfig,
   onOpenMcp,
   onMcpStatusChange,
+  onResumeSession,
 }) => {
   const {
     messages,
@@ -102,12 +104,22 @@ export const Chat: React.FC<ChatProps> = ({
       return;
     }
 
+    // Resume command
+    if (cmd === '/resume' || cmd.startsWith('/resume ')) {
+      const sessionIdArg = cmd.startsWith('/resume ')
+        ? value.slice('/resume '.length).trim()
+        : undefined;
+      onResumeSession?.(sessionIdArg);
+      return;
+    }
+
     // Help command
     if (cmd === '/help') {
       const helpMessage = `Available commands:
 /config, /settings - Open settings
 /mcp - Manage MCP servers
 /undo - Undo last action (revert file changes)
+/resume - Pick and resume a previous session
 /help - Show this help
 exit, quit - Exit mensa
 

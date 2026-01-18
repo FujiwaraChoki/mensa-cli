@@ -11,8 +11,8 @@ interface InputProps {
   disabled?: boolean;
 }
 
-const PROMPT = '>';
-const CURSOR = '|';
+const PROMPT = '❯';
+const CURSOR = '▌';
 
 // Available slash commands
 const SLASH_COMMANDS = [
@@ -20,6 +20,7 @@ const SLASH_COMMANDS = [
   { command: '/settings', description: 'Open settings' },
   { command: '/mcp', description: 'Manage MCP servers' },
   { command: '/undo', description: 'Undo last file changes' },
+  { command: '/resume', description: 'Resume previous session' },
   { command: '/image', description: 'Attach image by path' },
   { command: '/help', description: 'Show help' },
 ];
@@ -295,14 +296,14 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
                 color={index === selectedSuggestion ? 'cyan' : undefined}
                 bold={index === selectedSuggestion}
               >
-                {index === selectedSuggestion ? '> ' : '  '}
+                {index === selectedSuggestion ? '› ' : '  '}
                 {suggestion.command}
               </Text>
               <Text dimColor> - {suggestion.description}</Text>
             </Box>
           ))}
           <Box marginTop={0}>
-            <Text dimColor italic>up/down navigate | tab complete | enter select</Text>
+            <Text dimColor italic>↑↓ navigate · tab complete · enter select</Text>
           </Box>
         </Box>
       )}

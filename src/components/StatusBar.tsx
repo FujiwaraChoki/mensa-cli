@@ -31,7 +31,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   canUndo,
   mcpCount,
 }) => {
-  const parts: string[] = [`mensa | ${model}`];
+  const parts: string[] = [`mensa · ${model}`];
 
   // Add token/cost info if available
   if (usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
@@ -59,7 +59,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   return (
     <Box marginTop={1}>
-      <Text dimColor>{parts.join(' | ')}</Text>
+      <Text dimColor>{parts.join(' · ')}</Text>
     </Box>
   );
 };

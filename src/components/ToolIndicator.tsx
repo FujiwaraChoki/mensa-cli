@@ -8,7 +8,7 @@ interface ToolIndicatorProps {
   tool: Tool;
 }
 
-const CURSOR = '|';
+const CURSOR = '▍';
 
 const formatToolInput = (input: unknown): string => {
   if (typeof input === 'string') return input.slice(0, 60);

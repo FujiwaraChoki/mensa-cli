@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { Message } from './Message.tsx';
-import type { Message as MessageType } from '../types.ts';
+import type { Message as MessageType, ContentBlock, ToolContent } from '../types.ts';
 
 interface MessageListProps {
   messages: MessageType[];
@@ -22,6 +22,20 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isInputFocus
   // Calculate total "weight" of messages (approximate lines each takes)
   const messageWeights = useMemo(() => {
     return messages.map((msg) => {
+      // Handle array content (with text + tool blocks)
+      if (Array.isArray(msg.content)) {
+        return msg.content.reduce((weight, block: ContentBlock) => {
+          if (block.type === 'text') {
+            return weight + Math.ceil(block.text.length / 80) + 1;
+          }
+          if (block.type === 'tool') {
+            // Estimate: Edit tools are ~10 lines (diff), others ~3
+            return weight + ((block as ToolContent).tool.name === 'Edit' ? 10 : 3);
+          }
+          // Image blocks
+          return weight + 1;
+        }, 0);
+      }
       // Rough estimate: 1 base + content length / 80 chars per line
       const contentLength = msg.content?.length || 0;
       return Math.max(1, Math.ceil(contentLength / 80) + 1);

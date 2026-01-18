@@ -4,23 +4,40 @@ import React, { useMemo } from 'react';
 import { Text } from 'ink';
 import { Marked } from 'marked';
 import { markedTerminal } from 'marked-terminal';
+import chalk from 'chalk';
 
-// Configure marked with terminal renderer
+// Configure marked with terminal renderer - minimal padding, subtle colors
 const marked = new Marked(
   markedTerminal({
-    // Customize colors/styles as needed
-    code: (code: string) => code, // Keep code blocks simple
-    blockquote: (quote: string) => quote,
-    // Reduce heading prominence for chat context
-    firstHeading: (text: string) => `\n${text}\n`,
-    heading: (text: string) => `\n${text}\n`,
-    // Make links visible but not too distracting
-    link: (href: string, _title: string, text: string) => `${text} (${href})`,
-    href: (href: string) => href,
+    // Disable ## prefix before headings
+    showSectionPrefix: false,
+    // Headings - bold with subtle color difference
+    firstHeading: chalk.bold.white,
+    heading: chalk.bold.gray,
+    // Code - yellow tint for visibility
+    code: chalk.yellow,
+    codespan: chalk.yellow,
+    // Inline formatting
+    strong: chalk.bold,
+    em: chalk.italic,
+    del: chalk.strikethrough.dim,
+    // Links - blue and underlined
+    link: chalk.blue,
+    href: chalk.blue.underline,
+    // Blockquotes - dimmed and italic
+    blockquote: chalk.dim.italic,
+    // Lists - default handling (no custom override)
+    listitem: chalk.reset,
+    // Horizontal rule
+    hr: chalk.dim,
     // Tables
-    table: (header: string, body: string) => `\n${header}${body}\n`,
-    // Lists
-    listitem: (text: string) => `  - ${text}\n`,
+    table: chalk.reset,
+    // Disable text reflowing to reduce weird spacing
+    reflowText: false,
+    // Smaller tab for indentation
+    tab: 2,
+    // Keep width reasonable
+    width: 100,
   })
 );
 
@@ -35,8 +52,11 @@ export const Markdown: React.FC<MarkdownProps> = ({ children }) => {
     try {
       // Parse markdown to terminal-formatted string
       const result = marked.parse(children);
-      // Remove trailing newlines for cleaner output
-      return (typeof result === 'string' ? result : '').trimEnd();
+      let output = typeof result === 'string' ? result : '';
+      // Reduce excessive blank lines (3+ newlines -> 2)
+      output = output.replace(/\n{3,}/g, '\n\n');
+      // Remove leading/trailing whitespace
+      return output.trim();
     } catch {
       // Fallback to plain text if parsing fails
       return children;
