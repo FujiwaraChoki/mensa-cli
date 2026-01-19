@@ -143,7 +143,7 @@ Cmd+V - Paste image from clipboard`;
       {currentTool && <ToolIndicator tool={currentTool} />}
       {isLoading && !currentTool && <Spinner />}
       {isLoading && currentTool && <Spinner description={`Using ${currentTool.name}...`} />}
-      <Input onSubmit={handleSubmit} disabled={isLoading} />
+      <Input onSubmit={handleSubmit} disabled={isLoading} vimMode={config.vimMode} />
       <StatusBar
         model={formatModelName(config.model)}
         usage={usage}

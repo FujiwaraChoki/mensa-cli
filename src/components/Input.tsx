@@ -4,11 +4,13 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { Box, Text, useInput } from 'ink';
 import { ImagePreview } from './ImagePreview.tsx';
 import { useClipboard, isImagePath } from '../hooks/useClipboard.ts';
+import { useVimInput, type VimMode } from '../hooks/useVimInput.ts';
 import type { PendingImage } from '../types.ts';
 
 interface InputProps {
   onSubmit: (value: string, images?: PendingImage[]) => void;
   disabled?: boolean;
+  vimMode?: boolean;
 }
 
 const PROMPT = '❯';
@@ -27,14 +29,23 @@ const SLASH_COMMANDS = [
 
 const MAX_PENDING_IMAGES = 5;
 
-export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
-  const [value, setValue] = useState('');
+export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false, vimMode = false }) => {
+  // Standard input state (used when not in vim mode)
+  const [standardValue, setStandardValue] = useState('');
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [cursorVisible, setCursorVisible] = useState(true);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const prevValueRef = useRef('');
   const processingPathRef = useRef(false);
+
+  // Vim input state
+  const vim = useVimInput();
+
+  // Use vim value/cursor when in vim mode, standard otherwise
+  const value = vimMode ? vim.value : standardValue;
+  const setValue = vimMode ? vim.setValue : setStandardValue;
+  const cursorPos = vimMode ? vim.cursorPos : value.length;
 
   const { getClipboardImage, getImageFromPath, error: clipboardError, clearError } = useClipboard();
 
@@ -167,13 +178,13 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
   useInput((input, key) => {
     if (disabled) return;
 
-    // Handle Cmd+V or Ctrl+V for paste
+    // Handle Cmd+V or Ctrl+V for paste (works in both modes)
     if ((key.meta || key.ctrl) && input === 'v') {
       handlePaste();
       return;
     }
 
-    // Handle Ctrl+1-9 to remove images
+    // Handle Ctrl+1-9 to remove images (works in both modes)
     if (key.ctrl && input >= '1' && input <= '9') {
       const index = parseInt(input, 10) - 1;
       if (index < pendingImages.length) {
@@ -182,7 +193,7 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
       return;
     }
 
-    // Handle tab completion
+    // Handle tab completion (works in both modes)
     if (key.tab && suggestions.length > 0) {
       const suggestion = suggestions[selectedSuggestion];
       if (suggestion) {
@@ -191,7 +202,7 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
       return;
     }
 
-    // Navigate suggestions with up/down arrows
+    // Navigate suggestions with up/down arrows (works in both modes)
     if (key.upArrow && suggestions.length > 0) {
       setSelectedSuggestion(prev =>
         prev > 0 ? prev - 1 : suggestions.length - 1
@@ -207,6 +218,12 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
     }
 
     if (key.return) {
+      // In vim normal mode, Enter switches to insert mode (vim-like behavior)
+      if (vimMode && vim.mode === 'normal') {
+        vim.handleInput('a', key); // Append mode
+        return;
+      }
+
       // If we have suggestions and user presses enter, use the selected one
       if (suggestions.length > 0 && value === suggestions[selectedSuggestion]?.command.slice(0, value.length)) {
         const selected = suggestions[selectedSuggestion];
@@ -223,6 +240,7 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
         if (imagePath) {
           handleImageCommand(imagePath);
           setValue('');
+          if (vimMode) vim.reset();
           prevValueRef.current = '';
           setSelectedSuggestion(0);
         }
@@ -234,6 +252,7 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
         const imagesToSend = pendingImages.length > 0 ? [...pendingImages] : undefined;
         onSubmit(value.trim(), imagesToSend);
         setValue('');
+        if (vimMode) vim.reset();
         prevValueRef.current = '';
         setPendingImages([]);
         setSelectedSuggestion(0);
@@ -241,15 +260,22 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
       return;
     }
 
+    // VIM MODE: Let vim hook handle input
+    if (vimMode) {
+      vim.handleInput(input, key);
+      return;
+    }
+
+    // STANDARD MODE: Original input handling
     if (key.backspace || key.delete) {
       // Command+Backspace: delete entire line (but not on Ctrl since we use that for paste)
       if (key.meta) {
-        setValue('');
+        setStandardValue('');
         return;
       }
       // Option+Backspace (Alt): delete previous word
       if (key.alt) {
-        setValue(v => {
+        setStandardValue(v => {
           const trimmed = v.trimEnd();
           const lastSpace = trimmed.lastIndexOf(' ');
           if (lastSpace === -1) return '';
@@ -258,7 +284,7 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
         return;
       }
       // Regular backspace: delete one character
-      setValue(v => v.slice(0, -1));
+      setStandardValue(v => v.slice(0, -1));
       return;
     }
 
@@ -266,10 +292,61 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
       return;
     }
 
-    setValue(v => v + input);
+    setStandardValue(v => v + input);
   });
 
   const showSuggestions = suggestions.length > 0 && value.length > 0;
+
+  // Render text with cursor at correct position
+  const renderTextWithCursor = () => {
+    if (!vimMode) {
+      // Standard mode: cursor at end
+      return (
+        <>
+          <Text>{value}</Text>
+          <Text color="green">{cursorVisible ? CURSOR : ' '}</Text>
+        </>
+      );
+    }
+
+    // Vim mode: cursor at cursorPos
+    const beforeCursor = value.slice(0, cursorPos);
+    const atCursor = value[cursorPos] || ' ';
+    const afterCursor = value.slice(cursorPos + 1);
+
+    // In normal mode, show block cursor (inverse)
+    // In insert mode, show line cursor
+    if (vim.mode === 'normal') {
+      return (
+        <>
+          <Text>{beforeCursor}</Text>
+          <Text backgroundColor="white" color="black">{cursorVisible ? atCursor : atCursor}</Text>
+          <Text>{afterCursor}</Text>
+        </>
+      );
+    }
+
+    // Insert mode: show cursor between characters
+    return (
+      <>
+        <Text>{beforeCursor}</Text>
+        <Text color="green">{cursorVisible ? CURSOR : ' '}</Text>
+        <Text>{value.slice(cursorPos)}</Text>
+      </>
+    );
+  };
+
+  // Vim mode indicator
+  const vimModeIndicator = vimMode ? (
+    <Box marginLeft={2}>
+      <Text color={vim.mode === 'normal' ? 'blue' : 'green'} bold>
+        [{vim.mode === 'normal' ? 'N' : 'I'}]
+      </Text>
+      {vim.pendingCommand && (
+        <Text color="yellow" dimColor> {vim.pendingCommand}</Text>
+      )}
+    </Box>
+  ) : null;
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -285,8 +362,8 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
 
       <Box>
         <Text color="green" bold>{PROMPT} </Text>
-        <Text>{value}</Text>
-        <Text color="green">{cursorVisible ? CURSOR : ' '}</Text>
+        {renderTextWithCursor()}
+        {vimModeIndicator}
       </Box>
       {showSuggestions && (
         <Box flexDirection="column" marginTop={1}>
@@ -305,6 +382,14 @@ export const Input: React.FC<InputProps> = ({ onSubmit, disabled = false }) => {
           <Box marginTop={0}>
             <Text dimColor italic>↑↓ navigate · tab complete · enter select</Text>
           </Box>
+        </Box>
+      )}
+      {/* Vim mode help hint */}
+      {vimMode && !showSuggestions && (
+        <Box marginTop={0}>
+          <Text dimColor italic>
+            {vim.mode === 'normal' ? 'i/a insert · h/l move · w/b word · d delete · ESC normal' : 'ESC normal mode'}
+          </Text>
         </Box>
       )}
     </Box>

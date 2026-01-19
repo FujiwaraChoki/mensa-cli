@@ -51,6 +51,7 @@ export interface Config {
   mcpServers?: Record<string, McpServerConfig>;
   maxBudgetUsd?: number;
   lastSessionId?: string;
+  vimMode?: boolean;
 }
 
 // Image content types for multimodal messages
